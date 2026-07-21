@@ -13,7 +13,7 @@ No `brew tap` step needed — the fully-qualified name taps this repository auto
 Prefer curl? The same binaries install via:
 
 ```sh
-curl -fsSL https://lendercom.github.io/get/agent | sh
+curl -fsSL https://get.sawrun.com/agent | sh
 ```
 
 ## What's in here
