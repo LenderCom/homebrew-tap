@@ -1,9 +1,19 @@
 # Releasing saw-agent
 
-The source repo (`LenderCom/saw-agent`) is private; this public tap repo carries the
-release artifacts. Until a CI release workflow lands in `saw-agent`, the recipe is manual.
-Pin the Go toolchain named in `saw-agent/go.mod` — a different toolchain changes the
-binaries and therefore the checksums (v0.1.0 was built with go1.26.5).
+The source repo (`LenderCom/saw-agent`) is private; release artifacts are public so `brew
+install`/the curl installer work without credentials.
+
+**Target state** (saw-agent-auto-update-plan.md §2.7, ticket B1 — needs the T0 org-admin
+provisioning of `LenderCom/saw-agent-releases` + its publish token + minisign keysets): artifacts
+move to that dedicated repo, a stable tag there signs+publishes a manifest and dispatches
+[`bump-formula.yml`](.github/workflows/bump-formula.yml) here, which runs
+[`script/bump-formula.rb`](script/bump-formula.rb) against the manifest and opens the bump PR.
+Steps 4-5 below disappear once that's live; test the script itself with
+`test/bump-formula_test.sh` (no network, runs against a fixture manifest).
+
+**Until then**, or for a manual re-bump, the recipe stays as below. Pin the Go toolchain named in
+`saw-agent/go.mod` — a different toolchain changes the binaries and therefore the checksums
+(v0.1.0 was built with go1.26.5).
 
 ```sh
 # 1. From a CLEAN checkout of LenderCom/saw-agent at the commit to release:
@@ -15,7 +25,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 VERSION=vX.Y.Z COMMIT=$(git rev-parse --short=12 HEAD) make release
 
 # 3. Package: each tarball contains a single file named exactly `saw-agent`
-#    (the formula's `bin.install "saw-agent"` and the install script depend on it):
+#    (the formula's `libexec.install "saw-agent"` and the install script depend on it):
 cd dist
 for p in darwin_amd64 darwin_arm64 linux_amd64 linux_arm64; do
   mkdir -p pkg/$p && cp saw-agent_$p pkg/$p/saw-agent
