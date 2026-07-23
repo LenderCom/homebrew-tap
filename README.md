@@ -9,26 +9,54 @@ brew install lendercom/tap/saw-agent
 ```
 
 No `brew tap` step needed — the fully-qualified name taps this repository automatically.
+`brew info lendercom/tap/saw-agent` (or the caveats a fresh install prints) has the next step:
+pairing the machine with a SAW cloud workspace.
+
+Tracking internal dev builds instead of the stable release? Use the dev-channel formula:
+
+```sh
+brew install lendercom/tap/saw-agent-dev
+```
+
+It installs as `saw-agent-dev` (not `saw-agent`) so both can coexist, and always tracks the
+latest pre-release cut from [`LenderCom/saw-agent-releases`](https://github.com/LenderCom/saw-agent-releases)
+(several a day — see [`bump-formula-dev.yml`](.github/workflows/bump-formula-dev.yml)).
 
 Prefer curl? The same binaries install via:
 
 ```sh
-curl -fsSL https://get.sawrun.com/agent | sh
+curl -fsSL https://get.sawrun.com/agent | sh -s -- --channel stable   # or --channel dev
 ```
+
+### Troubleshooting: "Refusing to load formula ... from untrusted tap"
+
+If `brew install`/`brew list` refuses `lendercom/tap/...` with an untrusted-tap error, trust the
+tap once:
+
+```sh
+brew trust --tap lendercom/tap
+```
+
+(Homebrew's tap-trust store is per-machine, `~/.homebrew/trust.json` — a stale or mistyped entry
+there, e.g. an old `lendercom/test-tap` from before this tap's current name, silently blocks every
+install from `lendercom/tap` with no indication a prior install ever partially worked.)
 
 ## What's in here
 
 | Formula | Description |
 |---|---|
-| `saw-agent` | SAW remote agent — pairs a macOS/Linux machine with a SAW cloud workspace |
+| `saw-agent` | SAW remote agent, stable channel — pairs a macOS/Linux machine with a SAW cloud workspace |
+| `saw-agent-dev` | SAW remote agent, dev channel — same pairing flow, tracks the latest `saw-agent-releases` pre-release |
 
 Binaries are prebuilt (statically linked, CGO-free) from the private
-[`LenderCom/saw-agent`](https://github.com/LenderCom/saw-agent) source repo and published as
-release assets **on this repository** (tag `saw-agent-v<version>`), so they are publicly
-downloadable while the source stays private. This will migrate to the dedicated
-[`LenderCom/saw-agent-releases`](https://github.com/LenderCom/saw-agent-releases) repo once that's
-provisioned (see "Releasing" below) — no action needed here, the automated bump repoints the
-formula's urls on its own the first time it runs against the new repo.
+[`LenderCom/saw-agent`](https://github.com/LenderCom/saw-agent) source repo, publicly downloadable
+while the source stays private. `saw-agent-dev` already pulls its release assets from the
+dedicated [`LenderCom/saw-agent-releases`](https://github.com/LenderCom/saw-agent-releases) repo
+(provisioned; dev-channel tags land there several times a day). `saw-agent` (stable) still points
+at this tap repo's own `saw-agent-v0.1.0` release — no stable tag has published to
+`saw-agent-releases` yet — and will migrate the same way the first time
+[`bump-formula.yml`](.github/workflows/bump-formula.yml) runs against a stable tag there; no
+manual step needed here when that happens.
 
 ## What `saw-agent` installs
 

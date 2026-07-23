@@ -45,6 +45,31 @@ ruby "$repo_root/script/bump-formula.rb" \
   "$formula_copy"
 assert_contains 'version "0.2.0"'
 
+# Same script, second formula path (the dev-lane bump-formula-dev.yml usage) — proves the
+# path parametrization actually works end to end, not just in isolation.
+dev_formula_copy="$scratch/saw-agent-dev.rb"
+cp "$repo_root/Formula/saw-agent-dev.rb" "$dev_formula_copy"
+
+ruby "$repo_root/script/bump-formula.rb" \
+  "$repo_root/test/fixtures/manifest-v0.2.0.json" \
+  "v0.2.0" \
+  "$dev_formula_copy"
+
+assert_contains_in() {
+  file="$1"
+  needle="$2"
+  if ! grep -qF -- "$needle" "$file"; then
+    echo "FAIL: expected $file to contain: $needle"
+    fail=1
+  fi
+}
+
+assert_contains_in "$dev_formula_copy" 'version "0.2.0"'
+assert_contains_in "$dev_formula_copy" 'url "https://github.com/LenderCom/saw-agent-releases/releases/download/v0.2.0/saw-agent_v0.2.0_darwin_arm64.tar.gz"'
+assert_contains_in "$dev_formula_copy" 'sha256 "1111111111111111111111111111111111111111111111111111111111111a"'
+assert_contains_in "$dev_formula_copy" 'def shim_script'
+ruby -c "$dev_formula_copy" >/dev/null
+
 if [ "$fail" -ne 0 ]; then
   echo "bump-formula_test.sh: FAILED"
   exit 1

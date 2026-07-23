@@ -1,0 +1,78 @@
+name: Bump saw-agent-dev formula
+
+# Dev-lane counterpart to bump-formula.yml. Same receiving-half shape (repository_dispatch +
+# workflow_dispatch, reusing script/bump-formula.rb against Formula/saw-agent-dev.rb instead of
+# the stable formula) — but unlike stable (one release ever, saw-agent-v0.1.0), the dev channel
+# on LenderCom/saw-agent-releases cuts several pre-releases a DAY, and nothing dispatches this
+# repo on publish yet (the sending side is the same unwired ticket B1 as stable's dispatch). So
+# this also polls on a schedule until that dispatch lands — `workflow_dispatch`/
+# `repository_dispatch` both still work for a manual or wired-later bump; drop the schedule once
+# saw-agent's dev release workflow dispatches `saw-agent-dev-release` here directly.
+on:
+  repository_dispatch:
+    types: [saw-agent-dev-release]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag on LenderCom/saw-agent-releases, e.g. dev-v0.2.0-dev.5 (default: latest pre-release)"
+        required: false
+  schedule:
+    - cron: "*/15 * * * *"
+
+concurrency:
+  group: bump-saw-agent-dev
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ github.event.client_payload.tag || inputs.tag }}"
+          if [ -z "$tag" ]; then
+            # gh release list returns newest-first; the dev channel has no other
+            # prerelease kind on this repo, so the first non-draft prerelease is latest-dev.
+            tag=$(gh release list --repo LenderCom/saw-agent-releases \
+              --json tagName,isPrerelease,isDraft \
+              --jq '[.[] | select(.isPrerelease and (.isDraft | not))][0].tagName // empty')
+          fi
+          if [ -z "$tag" ]; then
+            echo "no dev pre-release tag found on LenderCom/saw-agent-releases (and none given)" >&2
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Bump formula from the published manifest
+        run: |
+          manifest_url="https://github.com/LenderCom/saw-agent-releases/releases/download/${{ steps.tag.outputs.tag }}/manifest.json"
+          ruby script/bump-formula.rb "$manifest_url" "${{ steps.tag.outputs.tag }}" Formula/saw-agent-dev.rb
+
+      - name: Verify
+        run: |
+          ruby -c Formula/saw-agent-dev.rb
+          brew style Formula/saw-agent-dev.rb
+
+      - name: Open PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.TAP_RELEASE_TOKEN }}
+          commit-message: "chore: bump saw-agent-dev to ${{ steps.tag.outputs.tag }}"
+          # Fixed branch (not tag-suffixed): the dev channel bumps several times a day, so
+          # each poll updates the SAME open PR in place instead of piling up one PR per build.
+          branch: bump-saw-agent-dev
+          title: "chore: bump saw-agent-dev to ${{ steps.tag.outputs.tag }}"
+          body: |
+            Automated bump from `LenderCom/saw-agent-releases@${{ steps.tag.outputs.tag }}`'s
+            manifest. Formula-only change — the shim/keg layout in `Formula/saw-agent-dev.rb`
+            is untouched. This PR is force-updated in place on every new dev-channel build
+            until it's merged (or superseded by a newer one after merge).
