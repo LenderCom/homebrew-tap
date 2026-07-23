@@ -1,7 +1,7 @@
 class SawAgent < Formula
   desc "SAW remote agent - pairs a machine with a SAW cloud workspace"
   homepage "https://github.com/LenderCom/saw-agent"
-  version "0.1.0"
+  version "0.1.1"
 
   # Source stays on this tap's own releases until the stable-lane bump workflow
   # (.github/workflows/bump-formula.yml) fires its first automated update: that workflow reads
@@ -10,21 +10,21 @@ class SawAgent < Formula
   # publish token + minisign keyset, see saw-agent-auto-update-plan.md §2.7) lands.
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/LenderCom/homebrew-tap/releases/download/saw-agent-v0.1.0/saw-agent_v0.1.0_darwin_arm64.tar.gz"
-      sha256 "653bcf48625313932f1160414d524ff675520232d0a31e89db19642918f586bd"
+      url "https://github.com/LenderCom/homebrew-tap/releases/download/saw-agent-v0.1.1/saw-agent_v0.1.1_darwin_arm64.tar.gz"
+      sha256 "393e99240d31e5e832dc6ff2b25d0ba71d7ca660467f56958a1efd657f25fc64"
     else
-      url "https://github.com/LenderCom/homebrew-tap/releases/download/saw-agent-v0.1.0/saw-agent_v0.1.0_darwin_amd64.tar.gz"
-      sha256 "ae46b8f991d83c49ca43742342cea9614fe45167b7a3fb0848011ee8d1348c8c"
+      url "https://github.com/LenderCom/homebrew-tap/releases/download/saw-agent-v0.1.1/saw-agent_v0.1.1_darwin_amd64.tar.gz"
+      sha256 "0e62840af5fa69bdba99c1572a561a8356f8f8931d41bf650e1091e5434f2a46"
     end
   end
 
   on_linux do
     if Hardware::CPU.arm?
-      url "https://github.com/LenderCom/homebrew-tap/releases/download/saw-agent-v0.1.0/saw-agent_v0.1.0_linux_arm64.tar.gz"
-      sha256 "57726ad2a86b8ec80bb5a3f66ba3d2d9110b9b29d90ba5284a790067c822aced"
+      url "https://github.com/LenderCom/homebrew-tap/releases/download/saw-agent-v0.1.1/saw-agent_v0.1.1_linux_arm64.tar.gz"
+      sha256 "c6c5baeac5022737841c9c3ca635e91be4ce516540b90fe6548ed7cf79900216"
     else
-      url "https://github.com/LenderCom/homebrew-tap/releases/download/saw-agent-v0.1.0/saw-agent_v0.1.0_linux_amd64.tar.gz"
-      sha256 "e2e8dc5ffe066131bc45f2d5dcda56de95e7616f9b8aab5496676a43ef0ab979"
+      url "https://github.com/LenderCom/homebrew-tap/releases/download/saw-agent-v0.1.1/saw-agent_v0.1.1_linux_amd64.tar.gz"
+      sha256 "2b8694723b02369417a559301c59ec744ece0a536b3bc5b5433cc7428a7cf3af"
     end
   end
 
@@ -61,6 +61,49 @@ class SawAgent < Formula
 
   def caveats
     <<~EOS
+      Next: pair this machine with a SAW cloud workspace
+      ===================================================
+
+      1. Easiest — in the browser, open your SAW workspace, go to Agents, and click
+         "Add remote agent". The wizard mints a one-time pair code and hands you the
+         exact command below, already filled in — copy, paste, done.
+
+      2. Direct — a workspace operator mints a code (`saw machines pair-code`, or the
+         same wizard) and gives it to you:
+
+           SAW_CLOUD_ORG=<org-id> \\
+             SAW_CLOUD_PAIR_CODE=<code> \\
+             saw-agent --cloud
+
+      3. Self-pair your OWN signed-in machine — no code needed:
+
+           SAW_CLOUD_SELF_PAIR=1 SAW_CLOUD_ORG=<org-id> saw-agent --cloud
+
+         (needs SAW_CLOUD_USER_TOKEN — a signed-in user session bearer)
+
+      Every cloud attach also needs your workspace's cloud origins — the compiled agent
+      has no built-in default, so set these once (the in-app wizard's command already
+      includes them for you):
+
+        SAW_CLOUD_AGENTS_URL=https://agents.sawrun.com
+        SAW_CLOUD_ACCOUNTS_URL=https://accounts.sawrun.com
+        SAW_CLOUD_REALTIME_URL=https://realtime.sawrun.com
+        SAW_CLOUD_WORKSPACE_URL=https://workspace.sawrun.com
+
+      Chasing the dev/internal cloud instead of production? Install `saw-agent-dev`
+      (`brew install lendercom/tap/saw-agent-dev`) — it tracks the latest dev-channel
+      build and its caveats print the matching *.dev.sawrun.com origins.
+
+      Once paired, `saw-agent --cloud` IS the long-lived agent process — it stays in the
+      foreground; Ctrl-C (or closing the terminal) stops it, and re-running the same
+      command brings it back. This formula does not install a launchd/systemd unit — the
+      `curl -fsSL https://get.sawrun.com/agent | sh` installer does, if you want the agent
+      to survive reboots without a formula-managed service.
+
+
+      How this installs
+      ==================
+
       saw-agent installs as a keg-fallback + shim pair, not a single binary:
         - #{opt_bin}/saw-agent is a dispatch shim.
         - #{opt_libexec}/saw-agent is this keg's pinned, versioned binary.
