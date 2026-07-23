@@ -45,16 +45,14 @@ class SawAgent < Formula
       managed="$HOME/.saw/bin/saw-agent"
       keg="#{opt_libexec}/saw-agent"
 
-      if [ -x "$managed" ]; then
+      # An executable managed-path file is not proof it RUNS: a truncated, wrong-arch, or
+      # otherwise corrupt binary is still `-x` but ENOEXEC on exec, and bash's `exec` on an
+      # ENOEXEC file falls back to reinterpreting it as a shell script (or kills the shell) —
+      # it does NOT fall through to the next line. So probe it first with a fast, side-effect-free
+      # flag: `-version` prints and exits immediately, unlike a bare invocation which would boot
+      # the daemon. Only exec the managed copy once the probe proves it actually runs.
+      if [ -x "$managed" ] && "$managed" -version >/dev/null 2>&1; then
         exec "$managed" "$@"
-      fi
-
-      # Bare invocation (no subcommand/flags) is how the launchd/systemd unit boots the daemon.
-      # First boot off the keg fallback: kick off the managed-path bootstrap in the background so
-      # the NEXT service start already prefers the self-updating install above. Never let this
-      # block or fail the boot itself.
-      if [ "$#" -eq 0 ]; then
-        ("$keg" self-update >/dev/null 2>&1 &) || true
       fi
 
       exec "$keg" "$@"
@@ -67,10 +65,17 @@ class SawAgent < Formula
         - #{opt_bin}/saw-agent is a dispatch shim.
         - #{opt_libexec}/saw-agent is this keg's pinned, versioned binary.
 
-      On first daemon start, the keg binary bootstraps itself into ~/.saw/bin/saw-agent
-      (`saw-agent self-update`) — from then on the shim always execs that self-updating copy
-      instead of the keg. `brew upgrade` never touches ~/.saw/bin; it only refreshes the keg
-      fallback, so a broken self-update still has a working, signed binary to fall back to.
+      The shim always prefers a healthy ~/.saw/bin/saw-agent (verified with a fast `-version`
+      probe, not just executable-bit) over the keg fallback. Nothing here bootstraps that
+      managed copy automatically — once the daemon service is running, tell it to adopt
+      self-updates itself:
+
+        saw-agent self-update
+
+      The RUNNING service binary is what installs itself into ~/.saw/bin/saw-agent; the shim
+      then picks up that self-updating copy on its next start. `brew upgrade` never touches
+      ~/.saw/bin — it only refreshes the keg fallback, so a broken self-update still has a
+      working, signed binary underneath it.
     EOS
   end
 
