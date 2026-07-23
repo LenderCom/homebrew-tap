@@ -1,7 +1,7 @@
 class SawAgent < Formula
   desc "SAW remote agent - pairs a machine with a SAW cloud workspace"
   homepage "https://github.com/LenderCom/saw-agent"
-  version "0.1.0"
+  version "0.1.1"
 
   # Source stays on this tap's own releases until the stable-lane bump workflow
   # (.github/workflows/bump-formula.yml) fires its first automated update: that workflow reads
@@ -10,21 +10,21 @@ class SawAgent < Formula
   # publish token + minisign keyset, see saw-agent-auto-update-plan.md §2.7) lands.
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/LenderCom/homebrew-tap/releases/download/saw-agent-v0.1.0/saw-agent_v0.1.0_darwin_arm64.tar.gz"
-      sha256 "653bcf48625313932f1160414d524ff675520232d0a31e89db19642918f586bd"
+      url "https://github.com/LenderCom/homebrew-tap/releases/download/saw-agent-v0.1.1/saw-agent_v0.1.1_darwin_arm64.tar.gz"
+      sha256 "393e99240d31e5e832dc6ff2b25d0ba71d7ca660467f56958a1efd657f25fc64"
     else
-      url "https://github.com/LenderCom/homebrew-tap/releases/download/saw-agent-v0.1.0/saw-agent_v0.1.0_darwin_amd64.tar.gz"
-      sha256 "ae46b8f991d83c49ca43742342cea9614fe45167b7a3fb0848011ee8d1348c8c"
+      url "https://github.com/LenderCom/homebrew-tap/releases/download/saw-agent-v0.1.1/saw-agent_v0.1.1_darwin_amd64.tar.gz"
+      sha256 "0e62840af5fa69bdba99c1572a561a8356f8f8931d41bf650e1091e5434f2a46"
     end
   end
 
   on_linux do
     if Hardware::CPU.arm?
-      url "https://github.com/LenderCom/homebrew-tap/releases/download/saw-agent-v0.1.0/saw-agent_v0.1.0_linux_arm64.tar.gz"
-      sha256 "57726ad2a86b8ec80bb5a3f66ba3d2d9110b9b29d90ba5284a790067c822aced"
+      url "https://github.com/LenderCom/homebrew-tap/releases/download/saw-agent-v0.1.1/saw-agent_v0.1.1_linux_arm64.tar.gz"
+      sha256 "c6c5baeac5022737841c9c3ca635e91be4ce516540b90fe6548ed7cf79900216"
     else
-      url "https://github.com/LenderCom/homebrew-tap/releases/download/saw-agent-v0.1.0/saw-agent_v0.1.0_linux_amd64.tar.gz"
-      sha256 "e2e8dc5ffe066131bc45f2d5dcda56de95e7616f9b8aab5496676a43ef0ab979"
+      url "https://github.com/LenderCom/homebrew-tap/releases/download/saw-agent-v0.1.1/saw-agent_v0.1.1_linux_amd64.tar.gz"
+      sha256 "2b8694723b02369417a559301c59ec744ece0a536b3bc5b5433cc7428a7cf3af"
     end
   end
 
