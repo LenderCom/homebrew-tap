@@ -1,0 +1,56 @@
+name: Bump saw-agent formula
+
+# Receiving half of the stable-lane automated bump (plan §2.7/§2.11): saw-agent's stable release
+# workflow (ticket B1) dispatches `saw-agent-stable-release` here with the just-published tag once
+# T0 (org-admin provisioning of LenderCom/saw-agent-releases) lands and B1 wires the sending side.
+# Until then this only runs by hand via workflow_dispatch, e.g. for a manual re-bump.
+on:
+  repository_dispatch:
+    types: [saw-agent-stable-release]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag on LenderCom/saw-agent-releases, e.g. v0.2.0"
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          tag="${{ github.event.client_payload.tag || inputs.tag }}"
+          if [ -z "$tag" ]; then
+            echo "no tag in either repository_dispatch payload or workflow_dispatch input" >&2
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Bump formula from the published manifest
+        run: |
+          manifest_url="https://github.com/LenderCom/saw-agent-releases/releases/download/${{ steps.tag.outputs.tag }}/manifest.json"
+          ruby script/bump-formula.rb "$manifest_url" "${{ steps.tag.outputs.tag }}"
+
+      - name: Verify
+        run: |
+          ruby -c Formula/saw-agent.rb
+          brew style Formula/saw-agent.rb
+
+      - name: Open PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.TAP_RELEASE_TOKEN }}
+          commit-message: "chore: bump saw-agent to ${{ steps.tag.outputs.tag }}"
+          branch: bump-saw-agent-${{ steps.tag.outputs.tag }}
+          title: "chore: bump saw-agent to ${{ steps.tag.outputs.tag }}"
+          body: |
+            Automated bump from `LenderCom/saw-agent-releases@${{ steps.tag.outputs.tag }}`'s
+            manifest. Formula-only change — the shim/keg layout in `Formula/saw-agent.rb` is
+            untouched.
