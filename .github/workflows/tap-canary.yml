@@ -1,0 +1,72 @@
+name: Tap install canary
+
+# Installs what a user actually installs, on the platforms they actually install it on.
+#
+# Everything upstream of this is a proxy: the bump job can go green and still leave the tap
+# broken, and — as of 2026-07-27 — it can also go RED ~100 times in four days without anyone
+# noticing, because a failing scheduled workflow in a quiet repo is invisible. Both of those
+# ended in the same place: `brew install lendercom/tap/saw-agent-dev` 404ing on a
+# dev-vX.Y.Z-dev.N release that saw-agent's prune-to-newest-5 had already deleted.
+#
+# So this asserts the end state instead of the mechanism, and files an issue when it breaks —
+# it catches a stale pin, a pruned release, a bad sha256, a broken shim, and a version-drifted
+# `test do` block alike, whatever upstream cause put them there.
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - "Formula/**"
+      - ".github/workflows/tap-canary.yml"
+
+concurrency:
+  group: tap-canary-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        # macos-latest is arm64 — the platform the dev-channel 404 was first hit on.
+        os: [macos-latest, ubuntu-latest]
+        formula: [saw-agent, saw-agent-dev]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: Homebrew/actions/setup-homebrew@master
+
+      - name: brew install lendercom/tap/${{ matrix.formula }}
+        run: |
+          brew tap lendercom/tap
+          brew install "lendercom/tap/${{ matrix.formula }}"
+
+      # Runs the formula's `test do` block: the shim resolves and the binary reports the
+      # version the formula claims. Catches a keg that installed but cannot execute.
+      - name: brew test lendercom/tap/${{ matrix.formula }}
+        run: brew test "lendercom/tap/${{ matrix.formula }}"
+
+  report:
+    needs: install
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/report-breakage
+        with:
+          token: ${{ github.token }}
+          title: "Tap canary failing: brew install from lendercom/tap is broken"
+          body: |
+            The hourly install canary could not install a formula from this tap, so
+            `brew install lendercom/tap/<formula>` is broken for everyone right now.
+
+            Usual causes, in the order worth checking:
+            1. `Formula/saw-agent-dev.rb` pins a dev prerelease that saw-agent's
+               prune-to-newest-5 has deleted — check whether the bump workflow is red.
+            2. A sha256 in the formula does not match the published artifact.
+            3. The keg installs but the shim cannot exec the binary.

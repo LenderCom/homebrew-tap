@@ -8,6 +8,12 @@ name: Bump saw-agent-dev formula
 # this also polls on a schedule until that dispatch lands — `workflow_dispatch`/
 # `repository_dispatch` both still work for a manual or wired-later bump; drop the schedule once
 # saw-agent's dev release workflow dispatches `saw-agent-dev-release` here directly.
+#
+# Unlike the stable lane this pushes STRAIGHT TO main rather than opening a PR: saw-agent's
+# release-dev.yml prunes LenderCom/saw-agent-releases to the newest 5 dev prereleases, so a bump
+# parked in an unmerged PR outlives the release it pins and `brew install
+# lendercom/tap/saw-agent-dev` starts 404ing on the download. The edit is entirely
+# script-generated, so there is nothing for a human to review during that window.
 on:
   repository_dispatch:
     types: [saw-agent-dev-release]
@@ -32,6 +38,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.TAP_RELEASE_TOKEN }}
 
       - name: Resolve tag
         id: tag
@@ -52,27 +60,50 @@ jobs:
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
+          # The schedule fires every 15 min but dev builds land every couple of hours, so most
+          # polls are no-ops — short-circuit those before paying for a Homebrew install.
+          if grep -q "/download/${tag}/" Formula/saw-agent-dev.rb; then
+            echo "already-pinned=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "already-pinned=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Bump formula from the published manifest
+        if: steps.tag.outputs.already-pinned == 'false'
         run: |
           manifest_url="https://github.com/LenderCom/saw-agent-releases/releases/download/${{ steps.tag.outputs.tag }}/manifest.json"
           ruby script/bump-formula.rb "$manifest_url" "${{ steps.tag.outputs.tag }}" Formula/saw-agent-dev.rb
 
+      # `brew` is absent from the GitHub-hosted ubuntu images, so `brew style` exits 127 without
+      # this step — which is what silently stalled every scheduled bump before the Open PR step.
+      - name: Set up Homebrew
+        if: steps.tag.outputs.already-pinned == 'false'
+        uses: Homebrew/actions/setup-homebrew@master
+
       - name: Verify
+        if: steps.tag.outputs.already-pinned == 'false'
         run: |
           ruby -c Formula/saw-agent-dev.rb
           brew style Formula/saw-agent-dev.rb
 
-      - name: Open PR
-        uses: peter-evans/create-pull-request@v6
+      - name: Commit to main
+        if: steps.tag.outputs.already-pinned == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore: bump saw-agent-dev to ${{ steps.tag.outputs.tag }}"
+          git push origin HEAD:main
+
+      # Nothing watches a scheduled job in a quiet repo — this one failed ~100 times over four
+      # days unnoticed, and users only found out when the pinned release was pruned out from
+      # under them. Surface it at the moment it breaks, not one prune cycle later.
+      - uses: ./.github/actions/report-breakage
+        if: failure() && github.event_name == 'schedule'
         with:
-          token: ${{ secrets.TAP_RELEASE_TOKEN }}
-          commit-message: "chore: bump saw-agent-dev to ${{ steps.tag.outputs.tag }}"
-          # Fixed branch (not tag-suffixed): the dev channel bumps several times a day, so
-          # each poll updates the SAME open PR in place instead of piling up one PR per build.
-          branch: bump-saw-agent-dev
-          title: "chore: bump saw-agent-dev to ${{ steps.tag.outputs.tag }}"
+          token: ${{ github.token }}
+          title: "saw-agent-dev formula bump is failing"
           body: |
-            Automated bump from `LenderCom/saw-agent-releases@${{ steps.tag.outputs.tag }}`'s
-            manifest. Formula-only change — the shim/keg layout in `Formula/saw-agent-dev.rb`
-            is untouched. This PR is force-updated in place on every new dev-channel build
-            until it's merged (or superseded by a newer one after merge).
+            The scheduled `saw-agent-dev` formula bump is failing, so the tap is frozen on
+            whatever dev prerelease it last pinned. `saw-agent`'s `release-dev.yml` prunes
+            `saw-agent-releases` to the newest 5 prereleases, so once that pin ages out
+            `brew install lendercom/tap/saw-agent-dev` starts 404ing on the download.
