@@ -1,0 +1,39 @@
+name: ci
+
+# The tap had no CI: test/bump-formula_test.sh existed but nothing ran it, and nothing
+# checked that a formula's pinned urls still resolve. Both gaps shipped a live 404 —
+# saw-agent-dev pointed at dev-v0.1.1-dev.21 long after that prerelease was pruned.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Homebrew/actions/setup-homebrew@master
+
+      - name: formula syntax + style
+        run: |
+          ruby -c Formula/saw-agent.rb
+          ruby -c Formula/saw-agent-dev.rb
+          brew style Formula/saw-agent.rb Formula/saw-agent-dev.rb
+
+      - name: bump-formula round-trip
+        run: test/bump-formula_test.sh
+
+      - name: every pinned formula url still resolves
+        run: |
+          set -eu
+          grep -ho 'https://github.com/LenderCom/[^"]*\.tar\.gz' Formula/*.rb | sort -u | while read -r url; do
+            echo "$url"
+            curl -fsSLI -o /dev/null "$url" || { echo "::error::pinned url is gone: $url"; exit 1; }
+          done
