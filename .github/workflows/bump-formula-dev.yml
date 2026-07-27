@@ -98,13 +98,19 @@ jobs:
           ruby -c Formula/saw-agent-dev.rb
           brew style Formula/saw-agent-dev.rb
 
+      # Pushes to an explicitly authenticated URL rather than `origin`: setup-homebrew relinks
+      # the tap checkout, which drops the credentials actions/checkout persisted into the local
+      # git config, so `git push origin` fails with "could not read Username for
+      # https://github.com" (run 30264704205). GH_TOKEN is masked in logs.
       - name: Commit to main
         if: steps.tag.outputs.already-pinned == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -am "chore: bump saw-agent-dev to ${{ steps.tag.outputs.tag }}"
-          git push origin HEAD:main
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
 
       # Nothing watches a scheduled job in a quiet repo — this one failed ~100 times over four
       # days unnoticed, and users only found out when the pinned release was pruned out from
