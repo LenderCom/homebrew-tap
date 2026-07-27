@@ -123,6 +123,6 @@ class SawAgent < Formula
   end
 
   test do
-    assert_match "saw-agent v0.1.0", shell_output("#{bin}/saw-agent --version")
+    assert_match "saw-agent #{version}", shell_output("#{bin}/saw-agent --version")
   end
 end
