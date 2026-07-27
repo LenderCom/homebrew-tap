@@ -84,7 +84,7 @@ jobs:
       # no-op poll from paying for the install.
       - name: Set up Homebrew
         if: steps.tag.outputs.already-pinned == 'false'
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@2026.07.20.1
 
       - name: Bump formula from the published manifest
         if: steps.tag.outputs.already-pinned == 'false'
