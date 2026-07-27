@@ -38,6 +38,11 @@ jobs:
           manifest_url="https://github.com/LenderCom/saw-agent-releases/releases/download/${{ steps.tag.outputs.tag }}/manifest.json"
           ruby script/bump-formula.rb "$manifest_url" "${{ steps.tag.outputs.tag }}"
 
+      # `brew` is absent from the GitHub-hosted ubuntu images, so `brew style` exits 127 without
+      # this step.
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
       - name: Verify
         run: |
           ruby -c Formula/saw-agent.rb
