@@ -3,17 +3,35 @@
 The source repo (`LenderCom/saw-agent`) is private; release artifacts are public so `brew
 install`/the curl installer work without credentials.
 
-**Target state** (saw-agent-auto-update-plan.md §2.7, ticket B1 — needs the T0 org-admin
-provisioning of `LenderCom/saw-agent-releases` + its publish token + minisign keysets): artifacts
-move to that dedicated repo, a stable tag there signs+publishes a manifest and dispatches
-[`bump-formula.yml`](.github/workflows/bump-formula.yml) here, which runs
-[`script/bump-formula.rb`](script/bump-formula.rb) against the manifest and opens the bump PR.
-Steps 4-5 below disappear once that's live; test the script itself with
-`test/bump-formula_test.sh` (no network, runs against a fixture manifest).
+## The formula bump is automated — do not hand-run the script
 
-**Until then**, or for a manual re-bump, the recipe stays as below. Pin the Go toolchain named in
-`saw-agent/go.mod` — a different toolchain changes the binaries and therefore the checksums
-(v0.1.0 was built with go1.26.5).
+Steps 4-6 below are **history**, kept only for a manual recovery. The live flow is:
+
+1. Tag `vX.Y.Z` on `LenderCom/saw-agent`. Its `release.yml` builds the matrix, signs
+   `manifest.json`, and publishes the release on `LenderCom/saw-agent-releases`.
+2. [`bump-formula.yml`](.github/workflows/bump-formula.yml) here polls that repo hourly, picks the
+   newest non-prerelease tag, runs [`script/bump-formula.rb`](script/bump-formula.rb) against the
+   signed manifest, verifies (`ruby -c`, `brew style`, `test/bump-formula_test.sh`, and an HTTP
+   check on the four new urls), and **opens the bump PR**. Merge it.
+3. [`tap-canary.yml`](.github/workflows/tap-canary.yml) then installs the merged formula on real
+   macOS + Linux runners hourly and files an issue if anything is wrong.
+
+It polls rather than being dispatched from `saw-agent` on purpose: a cross-repo dispatch needs a
+write token held over there, and an expiring token silently stops release propagation. Polling a
+public repo needs no credential. `workflow_dispatch` (tag optional) forces a bump early;
+`repository_dispatch: saw-agent-stable-release` is still accepted if a sending half is ever added.
+
+`saw-agent-dev` is the same story via
+[`bump-formula-dev.yml`](.github/workflows/bump-formula-dev.yml), except it pushes straight to
+`main` — the dev channel prunes to the newest 5 prereleases, so a bump parked in a PR outlives the
+release it pins.
+
+---
+
+## Manual recovery recipe
+
+Only if the automation is broken. Pin the Go toolchain named in `saw-agent/go.mod` — a different
+toolchain changes the binaries and therefore the checksums (v0.1.0 was built with go1.26.5).
 
 ```sh
 # 1. From a CLEAN checkout of LenderCom/saw-agent at the commit to release:

@@ -1,21 +1,44 @@
 name: Bump saw-agent formula
 
-# Receiving half of the stable-lane automated bump (plan §2.7/§2.11): saw-agent's stable release
-# workflow (ticket B1) dispatches `saw-agent-stable-release` here with the just-published tag once
-# T0 (org-admin provisioning of LenderCom/saw-agent-releases) lands and B1 wires the sending side.
-# Until then this only runs by hand via workflow_dispatch, e.g. for a manual re-bump.
+# Stable-lane formula bump. Fires three ways, in descending order of directness:
+#
+#   1. `repository_dispatch: saw-agent-stable-release` — kept for a future sending half in
+#      saw-agent's release.yml (plan §2.7/§2.11 ticket C8/B1). Nothing dispatches this today.
+#   2. `workflow_dispatch` — a manual re-bump, with or without an explicit tag.
+#   3. `schedule` — the mechanism that actually keeps the formula current.
+#
+# The schedule is deliberate, not a placeholder for (1). A cross-repo `repository_dispatch` from
+# saw-agent needs a token carrying write on THIS repo, held as a secret over there and evaluated
+# on every stable cut — a credential whose expiry silently stops releases from propagating at a
+# moment nobody is watching. Polling needs no credential at all: LenderCom/saw-agent-releases is
+# public, so the default GITHUB_TOKEN reads it fine. bump-formula-dev.yml has run exactly this
+# way since 2026-07-27; this lane is the same shape against the newest non-prerelease.
+#
+# Unlike the dev lane this opens a PR rather than pushing main: stable releases are never pruned
+# (release-dev.yml's prune-to-newest-5 only touches prereleases), so a bump waiting on review
+# cannot age out from under `brew install lendercom/tap/saw-agent` the way a parked dev bump can.
+#
+# Stable cuts are rare, so the cadence is hourly rather than the dev lane's */15, offset from
+# tap-canary.yml's :17 so the two do not start together.
 on:
   repository_dispatch:
     types: [saw-agent-stable-release]
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag on LenderCom/saw-agent-releases, e.g. v0.2.0"
-        required: true
+        description: "Release tag on LenderCom/saw-agent-releases, e.g. v0.2.0 (default: latest stable release)"
+        required: false
+  schedule:
+    - cron: "37 * * * *"
+
+concurrency:
+  group: bump-saw-agent-stable
+  cancel-in-progress: false
 
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 jobs:
   bump:
@@ -23,40 +46,90 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # ubuntu-latest dropped Homebrew in the 24.04 move; without this the `brew style` step
-      # below dies with "brew: command not found" (as the dev lane has on every run since).
-      - uses: Homebrew/actions/setup-homebrew@master
-
       - name: Resolve tag
         id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           tag="${{ github.event.client_payload.tag || inputs.tag }}"
           if [ -z "$tag" ]; then
-            echo "no tag in either repository_dispatch payload or workflow_dispatch input" >&2
+            # Newest-first; take the first release that is neither a prerelease (the dev
+            # channel) nor a draft. `isLatest` is deliberately not used — it tracks GitHub's
+            # "Latest" marker, which a re-published older release can carry without being newest.
+            tag=$(gh release list --repo LenderCom/saw-agent-releases \
+              --json tagName,isPrerelease,isDraft \
+              --jq '[.[] | select((.isPrerelease | not) and (.isDraft | not))][0].tagName // empty')
+          fi
+          if [ -z "$tag" ]; then
+            echo "no stable release tag found on LenderCom/saw-agent-releases (and none given)" >&2
             exit 1
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
+          # Most polls are no-ops — short-circuit those before paying for a Homebrew install.
+          if grep -q "/download/${tag}/" Formula/saw-agent.rb; then
+            echo "already-pinned=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "already-pinned=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ubuntu-latest dropped Homebrew in the 24.04 move; without this `brew style` below exits
+      # 127. Must run BEFORE the bump — this action relinks the tap checkout against origin and
+      # silently discards an uncommitted edit, which on the dev lane produced a bump step that
+      # logged success followed by a commit step seeing a clean tree (run 30264270641).
+      - name: Set up Homebrew
+        if: steps.tag.outputs.already-pinned == 'false'
+        uses: Homebrew/actions/setup-homebrew@master
+
       - name: Bump formula from the published manifest
+        if: steps.tag.outputs.already-pinned == 'false'
         run: |
           manifest_url="https://github.com/LenderCom/saw-agent-releases/releases/download/${{ steps.tag.outputs.tag }}/manifest.json"
           ruby script/bump-formula.rb "$manifest_url" "${{ steps.tag.outputs.tag }}"
 
+      # ci.yml runs these on `pull_request`, but a PR opened by GITHUB_TOKEN does not trigger
+      # other workflows — the bump PR lands with no checks on it. So assert here, in the job
+      # that authored the edit, rather than relying on a checks run that will never start.
       - name: Verify
+        if: steps.tag.outputs.already-pinned == 'false'
         run: |
+          set -eu
           ruby -c Formula/saw-agent.rb
           brew style Formula/saw-agent.rb
+          test/bump-formula_test.sh
+          grep -ho 'https://github.com/LenderCom/[^"]*\.tar\.gz' Formula/saw-agent.rb | sort -u | while read -r url; do
+            echo "$url"
+            curl -fsSLI -o /dev/null "$url" || { echo "::error::newly-pinned url does not resolve: $url"; exit 1; }
+          done
 
       - name: Open PR
+        if: steps.tag.outputs.already-pinned == 'false'
         uses: peter-evans/create-pull-request@v6
         with:
-          # TAP_RELEASE_TOKEN has never existed on this repo, so this handed the action an
-          # empty token; the default GITHUB_TOKEN plus the `permissions:` block is sufficient.
+          # TAP_RELEASE_TOKEN has never existed on this repo, so naming it here handed the action
+          # an empty token; the default GITHUB_TOKEN plus the `permissions:` block is sufficient.
           token: ${{ github.token }}
           commit-message: "chore: bump saw-agent to ${{ steps.tag.outputs.tag }}"
           branch: bump-saw-agent-${{ steps.tag.outputs.tag }}
           title: "chore: bump saw-agent to ${{ steps.tag.outputs.tag }}"
           body: |
             Automated bump from `LenderCom/saw-agent-releases@${{ steps.tag.outputs.tag }}`'s
-            manifest. Formula-only change — the shim/keg layout in `Formula/saw-agent.rb` is
-            untouched.
+            minisign-signed manifest. Formula-only change — the shim/keg layout in
+            `Formula/saw-agent.rb` is untouched.
+
+            Verified in the bump job before this PR was opened: `ruby -c`, `brew style`,
+            `test/bump-formula_test.sh`, and an HTTP check that all four newly-pinned urls
+            resolve. A PR opened by `GITHUB_TOKEN` does not start `ci.yml`, so those checks
+            will not appear below.
+
+      # Nothing watches a scheduled job in a quiet repo — the dev lane's failed ~100 times over
+      # four days unnoticed. Surface it at the moment it breaks.
+      - uses: ./.github/actions/report-breakage
+        if: failure() && github.event_name == 'schedule'
+        with:
+          token: ${{ github.token }}
+          title: "saw-agent formula bump is failing"
+          body: |
+            The scheduled `saw-agent` (stable) formula bump is failing, so the tap is frozen on
+            whatever stable release it last pinned and new stable cuts are not reaching
+            `brew install lendercom/tap/saw-agent`.
