@@ -81,18 +81,17 @@ class SawAgent < Formula
 
          (needs SAW_CLOUD_USER_TOKEN — a signed-in user session bearer)
 
-      Every cloud attach also needs your workspace's cloud origins — the compiled agent
-      has no built-in default, so set these once (the in-app wizard's command already
-      includes them for you):
+      NOTE: there is no production SAW cloud yet — agents/accounts/realtime/workspace
+      under sawrun.com do not resolve. This formula cannot pair against production
+      until those exist, and the stable build ships no compiled-in origins, so a cloud
+      attach here needs your own origins set explicitly:
 
-        SAW_CLOUD_AGENTS_URL=https://agents.sawrun.com
-        SAW_CLOUD_ACCOUNTS_URL=https://accounts.sawrun.com
-        SAW_CLOUD_REALTIME_URL=https://realtime.sawrun.com
-        SAW_CLOUD_WORKSPACE_URL=https://workspace.sawrun.com
+        SAW_CLOUD_AGENTS_URL=... SAW_CLOUD_ACCOUNTS_URL=...
+        SAW_CLOUD_REALTIME_URL=... SAW_CLOUD_WORKSPACE_URL=...
 
-      Chasing the dev/internal cloud instead of production? Install `saw-agent-dev`
+      For the dev/internal cloud, install `saw-agent-dev` instead
       (`brew install lendercom/tap/saw-agent-dev`) — it tracks the latest dev-channel
-      build and its caveats print the matching *.dev.sawrun.com origins.
+      build and has the dev origins compiled in, so it needs none of the above.
 
       Once paired, `saw-agent --cloud` IS the long-lived agent process — it stays in the
       foreground; Ctrl-C (or closing the terminal) stops it, and re-running the same

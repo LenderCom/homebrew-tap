@@ -59,50 +59,21 @@ class SawAgentDev < Formula
 
   def caveats
     <<~EOS
-      This is a DEV-CHANNEL pre-release build (#{version}), rebuilt from
-      LenderCom/saw-agent-releases several times a day — expect it to move. It is for
-      internal/dev use against a dev SAW cloud workspace, not production.
+      DEV-CHANNEL build (#{version}), rebuilt several times a day — for use against a
+      dev SAW workspace, not production.
 
-      Installs side by side with the stable `saw-agent` formula under its own name:
-        - #{opt_bin}/saw-agent-dev is the dispatch shim (run this).
-        - #{opt_libexec}/saw-agent is this keg's pinned, versioned binary.
+      Pair this machine:
 
-      Next: pair this machine with a DEV SAW cloud workspace
-      =======================================================
+        saw-agent-dev --cloud
 
-      1. Easiest — open the dev SAW workspace in the browser, go to Agents, and click
-         "Add remote agent". The wizard mints a one-time pair code and hands you the
-         exact command, already filled in.
+      It asks for the workspace id and pair code, then stays running. Get a code from
+      the dev SAW workspace: Agents -> "Add remote agent".
 
-      2. Direct — a workspace operator mints a code (`saw machines pair-code`, or the
-         same wizard):
+      The dev cloud origins are compiled in — nothing to export. To pair without the
+      prompt, set SAW_CLOUD_ORG and SAW_CLOUD_PAIR_CODE.
 
-           SAW_CLOUD_ORG=<org-id> \\
-             SAW_CLOUD_PAIR_CODE=<code> \\
-             saw-agent-dev --cloud
-
-      3. Self-pair your OWN signed-in machine — no code needed:
-
-           SAW_CLOUD_SELF_PAIR=1 SAW_CLOUD_ORG=<org-id> saw-agent-dev --cloud
-
-         (needs SAW_CLOUD_USER_TOKEN — a signed-in user session bearer)
-
-      The compiled agent has NO built-in default cloud origin — against the DEV cloud
-      you must export all four every time (this is true for the stable formula too;
-      only the in-app wizard's copyable command fills them in for you), so set:
-
-        SAW_CLOUD_AGENTS_URL=https://agents.dev.sawrun.com
-        SAW_CLOUD_ACCOUNTS_URL=https://accounts.dev.sawrun.com
-        SAW_CLOUD_REALTIME_URL=https://realtime.dev.sawrun.com
-        SAW_CLOUD_WORKSPACE_URL=https://workspace.dev.sawrun.com
-
-      Want production instead? `brew install lendercom/tap/saw-agent` (the stable
-      formula) — same pairing flow, *.sawrun.com origins instead of *.dev.sawrun.com.
-
-      `brew upgrade saw-agent-dev` picks up whatever dev-channel build
-      .github/workflows/bump-formula-dev.yml last pinned — run `brew update` first if
-      you want the very latest (it bumps on every new pre-release, on a short poll
-      cadence until LenderCom/saw-agent-releases dispatches it directly).
+      Run `saw-agent-dev` (not `saw-agent`) — this installs alongside the stable
+      formula under its own name.
     EOS
   end
 
