@@ -41,6 +41,11 @@ jobs:
         with:
           token: ${{ secrets.TAP_RELEASE_TOKEN }}
 
+      # ubuntu-latest stopped shipping Homebrew when it moved to 24.04, so the `brew style`
+      # step below started failing with "brew: command not found" — every scheduled run since
+      # has failed, which is why saw-agent-dev sat on a pruned, 404ing dev tag.
+      - uses: Homebrew/actions/setup-homebrew@master
+
       - name: Resolve tag
         id: tag
         env:
