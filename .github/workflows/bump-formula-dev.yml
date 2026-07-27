@@ -37,14 +37,15 @@ jobs:
   bump:
     runs-on: ubuntu-latest
     steps:
+      # No `token:` — the default GITHUB_TOKEN plus `permissions: contents: write` above is
+      # enough to push main. TAP_RELEASE_TOKEN, which this named, has never existed on this
+      # repo: the expression resolved to empty and checkout died on "Input required and not
+      # supplied: token". That was invisible until the `brew` fix let a run reach checkout.
+      #
+      # A push by GITHUB_TOKEN deliberately does not trigger other workflows, so an automated
+      # bump will not fire tap-canary.yml's `push` trigger — the canary's hourly schedule is
+      # what covers a bumped formula.
       - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.TAP_RELEASE_TOKEN }}
-
-      # ubuntu-latest stopped shipping Homebrew when it moved to 24.04, so the `brew style`
-      # step below started failing with "brew: command not found" — every scheduled run since
-      # has failed, which is why saw-agent-dev sat on a pruned, 404ing dev tag.
-      - uses: Homebrew/actions/setup-homebrew@master
 
       - name: Resolve tag
         id: tag
@@ -79,8 +80,9 @@ jobs:
           manifest_url="https://github.com/LenderCom/saw-agent-releases/releases/download/${{ steps.tag.outputs.tag }}/manifest.json"
           ruby script/bump-formula.rb "$manifest_url" "${{ steps.tag.outputs.tag }}" Formula/saw-agent-dev.rb
 
-      # `brew` is absent from the GitHub-hosted ubuntu images, so `brew style` exits 127 without
-      # this step — which is what silently stalled every scheduled bump before the Open PR step.
+      # ubuntu-latest dropped Homebrew in the 24.04 move, so `brew style` below exits 127
+      # without this — the failure that stalled every scheduled bump. Installed here rather
+      # than at the top of the job so a no-op poll does not pay for it.
       - name: Set up Homebrew
         if: steps.tag.outputs.already-pinned == 'false'
         uses: Homebrew/actions/setup-homebrew@master
