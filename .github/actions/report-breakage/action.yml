@@ -1,0 +1,40 @@
+name: Report breakage
+description: >-
+  Open (or reopen and comment on) a single tracking issue for a failing scheduled job, so an
+  unattended workflow cannot fail silently. Deduplicates on the title while the breakage lasts.
+
+inputs:
+  title:
+    description: Issue title; also the dedup key.
+    required: true
+  body:
+    description: Issue body, used only when the issue is first created.
+    required: true
+  token:
+    description: Token with issues:write.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        TITLE: ${{ inputs.title }}
+        BODY: ${{ inputs.body }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        existing=$(gh issue list --state all --search "$TITLE in:title" --json number,state,title \
+          --jq '[.[] | select(.title == env.TITLE)][0] | select(. != null) | "\(.number) \(.state)"')
+
+        if [ -z "$existing" ]; then
+          gh issue create --title "$TITLE" --body "$BODY
+
+        Failing run: $RUN_URL"
+          exit 0
+        fi
+
+        number=${existing%% *}
+        state=${existing##* }
+        [ "$state" = "CLOSED" ] && gh issue reopen "$number"
+        gh issue comment "$number" --body "Still failing: $RUN_URL"

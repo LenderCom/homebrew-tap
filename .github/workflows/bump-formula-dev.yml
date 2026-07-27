@@ -93,3 +93,17 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -am "chore: bump saw-agent-dev to ${{ steps.tag.outputs.tag }}"
           git push origin HEAD:main
+
+      # Nothing watches a scheduled job in a quiet repo — this one failed ~100 times over four
+      # days unnoticed, and users only found out when the pinned release was pruned out from
+      # under them. Surface it at the moment it breaks, not one prune cycle later.
+      - uses: ./.github/actions/report-breakage
+        if: failure() && github.event_name == 'schedule'
+        with:
+          token: ${{ github.token }}
+          title: "saw-agent-dev formula bump is failing"
+          body: |
+            The scheduled `saw-agent-dev` formula bump is failing, so the tap is frozen on
+            whatever dev prerelease it last pinned. `saw-agent`'s `release-dev.yml` prunes
+            `saw-agent-releases` to the newest 5 prereleases, so once that pin ages out
+            `brew install lendercom/tap/saw-agent-dev` starts 404ing on the download.
