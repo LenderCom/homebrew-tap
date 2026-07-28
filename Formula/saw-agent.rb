@@ -61,25 +61,23 @@ class SawAgent < Formula
 
   def caveats
     <<~EOS
-      Next: pair this machine with a SAW cloud workspace
-      ===================================================
+      Next: set this machine up
+      =========================
 
-      1. Easiest — in the browser, open your SAW workspace, go to Agents, and click
-         "Add remote agent". The wizard mints a one-time pair code and hands you the
-         exact command below, already filled in — copy, paste, done.
+        saw-agent setup
 
-      2. Direct — a workspace operator mints a code (`saw machines pair-code`, or the
-         same wizard) and gives it to you:
+      It pairs, installs itself to start on boot (a launchd LaunchAgent on macOS, a
+      systemd user unit on Linux), and walks you through the permissions it needs —
+      then asks two questions.
 
-           SAW_CLOUD_ORG=<org-id> \\
-             SAW_CLOUD_PAIR_CODE=<code> \\
-             saw-agent --cloud
+      Get the answers from your browser: open your SAW workspace, go to
+      Settings -> Remote agents, and click "Add remote agent". The wizard shows the
+      workspace id and a one-time pair code, in the order setup asks for them. The
+      code is never passed on the command line, so it stays out of your shell history.
 
-      3. Self-pair your OWN signed-in machine — no code needed:
-
-           SAW_CLOUD_SELF_PAIR=1 SAW_CLOUD_ORG=<org-id> saw-agent --cloud
-
-         (needs SAW_CLOUD_USER_TOKEN — a signed-in user session bearer)
+      Already paired? `saw-agent install` / `uninstall` / `status` manage the
+      background service on their own. To pair your OWN signed-in machine with no
+      code, export SAW_CLOUD_SELF_PAIR=1 and SAW_CLOUD_USER_TOKEN before running setup.
 
       NOTE: there is no production SAW cloud yet — agents/accounts/realtime/workspace
       under sawrun.com do not resolve. This formula cannot pair against production
@@ -93,11 +91,10 @@ class SawAgent < Formula
       (`brew install lendercom/tap/saw-agent-dev`) — it tracks the latest dev-channel
       build and has the dev origins compiled in, so it needs none of the above.
 
-      Once paired, `saw-agent --cloud` IS the long-lived agent process — it stays in the
-      foreground; Ctrl-C (or closing the terminal) stops it, and re-running the same
-      command brings it back. This formula does not install a launchd/systemd unit — the
-      `curl -fsSL https://get.sawrun.com/agent | sh` installer does, if you want the agent
-      to survive reboots without a formula-managed service.
+      `saw-agent setup` installs the background service itself, so the agent survives a
+      reboot and a self-update without a terminal held open. `saw-agent --cloud` still
+      runs it in the FOREGROUND for a one-off — closing that terminal stops the machine
+      and drops it out of the fleet.
 
 
       How this installs

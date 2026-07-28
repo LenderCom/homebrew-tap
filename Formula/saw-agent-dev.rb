@@ -62,15 +62,18 @@ class SawAgentDev < Formula
       DEV-CHANNEL build (#{version}), rebuilt several times a day — for use against a
       dev SAW workspace, not production.
 
-      Pair this machine:
+      Set this machine up:
 
-        saw-agent-dev --cloud
+        saw-agent-dev setup
 
-      It asks for the workspace id and pair code, then stays running. Get a code from
-      the dev SAW workspace: Agents -> "Add remote agent".
+      It pairs, installs itself to start on boot, and walks you through the macOS
+      permissions it needs — then asks two questions.
 
-      The dev cloud origins are compiled in — nothing to export. To pair without the
-      prompt, set SAW_CLOUD_ORG and SAW_CLOUD_PAIR_CODE.
+      Get the answers from your browser: open the dev SAW workspace, go to
+      Settings -> Remote agents, and click "Add remote agent". The wizard shows the
+      workspace id and a one-time pair code, in the order setup asks for them.
+
+      The dev cloud origins are compiled in — nothing to export.
 
       Run `saw-agent-dev` (not `saw-agent`) — this installs alongside the stable
       formula under its own name.
