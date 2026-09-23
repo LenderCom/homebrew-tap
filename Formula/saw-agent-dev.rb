@@ -1,7 +1,7 @@
 class SawAgentDev < Formula
   desc "SAW remote agent - dev channel, tracks latest saw-agent-releases pre-release"
   homepage "https://github.com/LenderCom/saw-agent"
-  version "0.1.3-dev.1310+gab35e45"
+  version "0.1.3-dev.1312+g15bf3b8"
 
   # Dev-channel builds cut several times a day from LenderCom/saw-agent-releases
   # (tags dev-vX.Y.Z-dev.N). .github/workflows/bump-formula-dev.yml keeps this pinned to
@@ -9,21 +9,21 @@ class SawAgentDev < Formula
   # the stable saw-agent formula; it takes the formula path as its third argument).
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/LenderCom/saw-agent-releases/releases/download/dev-v0.1.3-dev.1310/saw-agent_dev-v0.1.3-dev.1310_darwin_arm64.tar.gz"
-      sha256 "b4acd45debbb8f2a240ce05a5e11547bb58ec9ca95a0c81d03991ff9b637a226"
+      url "https://github.com/LenderCom/saw-agent-releases/releases/download/dev-v0.1.3-dev.1312/saw-agent_dev-v0.1.3-dev.1312_darwin_arm64.tar.gz"
+      sha256 "250bdb0121c7d122019312ccc6de8a131ff811ae5899ea7d6c8c1a3fe9a66420"
     else
-      url "https://github.com/LenderCom/saw-agent-releases/releases/download/dev-v0.1.3-dev.1310/saw-agent_dev-v0.1.3-dev.1310_darwin_amd64.tar.gz"
-      sha256 "a3d9bb4060ce7ac3b91e1f045407ab05d554732631a46b7f7ec4712f383c7647"
+      url "https://github.com/LenderCom/saw-agent-releases/releases/download/dev-v0.1.3-dev.1312/saw-agent_dev-v0.1.3-dev.1312_darwin_amd64.tar.gz"
+      sha256 "691fb5d2f9f0219cf4f029d066115b4322e196e236bd4dc05abc20883c901583"
     end
   end
 
   on_linux do
     if Hardware::CPU.arm?
-      url "https://github.com/LenderCom/saw-agent-releases/releases/download/dev-v0.1.3-dev.1310/saw-agent_dev-v0.1.3-dev.1310_linux_arm64.tar.gz"
-      sha256 "9b084d49abb7c14b740896ffd2029f964f5442622ccf842861e3ad1304e0aad0"
+      url "https://github.com/LenderCom/saw-agent-releases/releases/download/dev-v0.1.3-dev.1312/saw-agent_dev-v0.1.3-dev.1312_linux_arm64.tar.gz"
+      sha256 "c37f0000e3609017b83ec97d2f632779bff331575d4e209b204e6a13f0fca0a8"
     else
-      url "https://github.com/LenderCom/saw-agent-releases/releases/download/dev-v0.1.3-dev.1310/saw-agent_dev-v0.1.3-dev.1310_linux_amd64.tar.gz"
-      sha256 "225c6633ebebe764b0f9cf78dc1bc16f92ec1c301bb130dc087e82b99e0031bd"
+      url "https://github.com/LenderCom/saw-agent-releases/releases/download/dev-v0.1.3-dev.1312/saw-agent_dev-v0.1.3-dev.1312_linux_amd64.tar.gz"
+      sha256 "cc2760fecf27de7425ca95ffe27f7fbf5cf5d5e244912cd22715c09287fd8310"
     end
   end
 
